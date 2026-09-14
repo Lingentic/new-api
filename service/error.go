@@ -218,6 +218,7 @@ func TaskErrorFromAPIError(apiErr *types.NewAPIError) *dto.TaskError {
 		Code:       string(apiErr.GetErrorCode()),
 		Message:    apiErr.Err.Error(),
 		StatusCode: apiErr.StatusCode,
+		LocalError: true,
 		Error:      apiErr.Err,
 	}
 }

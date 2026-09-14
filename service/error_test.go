@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,22 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestTaskErrorFromAPIErrorMarksLocalError(t *testing.T) {
+	apiErr := types.NewErrorWithStatusCode(
+		errors.New("wallet reserve rejected"),
+		types.ErrorCodeInsufficientFunds,
+		http.StatusPaymentRequired,
+		types.ErrOptionWithSkipRetry(),
+	)
+
+	taskErr := TaskErrorFromAPIError(apiErr)
+
+	require.NotNil(t, taskErr)
+	require.True(t, taskErr.LocalError)
+	require.Equal(t, http.StatusPaymentRequired, taskErr.StatusCode)
+	require.Equal(t, string(types.ErrorCodeInsufficientFunds), taskErr.Code)
+}
 
 func TestResetStatusCode(t *testing.T) {
 	t.Parallel()
