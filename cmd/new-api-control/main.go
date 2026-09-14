@@ -251,6 +251,7 @@ func routesWithPricingDependencies(dependencies pricingRouteDependencies) http.H
 	mux.HandleFunc("GET /health/ready", handleReady)
 	mux.HandleFunc("POST /internal/v1/identities/apply", handleApplyIdentity)
 	mux.HandleFunc("POST /internal/v1/api-keys/create", handleCreateAPIKey)
+	mux.HandleFunc("POST /internal/v1/api-keys/authenticate", handleAuthenticateAPIKey)
 	mux.HandleFunc("POST /internal/v1/api-keys/revoke", handleRevokeAPIKey)
 	mux.HandleFunc("GET /internal/v1/api-keys/{apiKeyID}", handleGetAPIKey)
 	mux.HandleFunc("GET /internal/v1/chat-models", handleListChatModels)
