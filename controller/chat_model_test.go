@@ -204,11 +204,12 @@ func TestEstimateChatModelPrice(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, 0.15302, price)
 
-	_, ok = estimateChatModelPrice(model.Pricing{
+	price, ok = estimateChatModelPrice(model.Pricing{
 		BillingMode: "tiered_expr",
 		BillingExpr: `tier("standard", p * 2 + c * 8)`,
 	}, nil)
-	require.False(t, ok)
+	require.True(t, ok)
+	require.Equal(t, 0.385906, price)
 }
 
 func TestUpdateChatModelSetsSingleAutoWithOptionalFields(t *testing.T) {
