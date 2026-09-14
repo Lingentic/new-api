@@ -10,23 +10,44 @@ import (
 )
 
 func ConvertVideoBillingParams(info *relaycommon.RelayInfo, req relaycommon.TaskSubmitReq) (*types.VideoBillingParams, error) {
-	modelName := req.Model
+	requestedModel := strings.ToLower(strings.TrimSpace(req.Model))
+	modelNames := make([]string, 0, 3)
 	if info != nil && info.ChannelMeta != nil && strings.TrimSpace(info.UpstreamModelName) != "" {
-		modelName = info.UpstreamModelName
+		upstreamModel := strings.ToLower(strings.TrimSpace(info.UpstreamModelName))
+		modelNames = append(modelNames, upstreamModel)
 	}
-	modelName = strings.ToLower(strings.TrimSpace(modelName))
-	if converter := getRegisteredVideoBillingConverter(modelName); converter != nil {
-		req.Model = modelName
-		return converter(req)
+	if info != nil {
+		originModel := strings.ToLower(strings.TrimSpace(info.OriginModelName))
+		if originModel != "" && (len(modelNames) == 0 || originModel != modelNames[0]) {
+			modelNames = append(modelNames, originModel)
+		}
 	}
-	switch {
-	case strings.HasPrefix(modelName, "happyhorse-1.0"), strings.HasPrefix(modelName, "happyhorse-1.1"):
-		return convertAliHappyHorseVideoBillingParams(req)
-	case strings.HasPrefix(modelName, "kling/kling-v3-"):
-		return convertAliKlingVideoBillingParams(req)
-	default:
-		return nil, fmt.Errorf("video billing converter not found for model %s", req.Model)
+	if requestedModel != "" {
+		alreadyAdded := false
+		for _, modelName := range modelNames {
+			if requestedModel == modelName {
+				alreadyAdded = true
+				break
+			}
+		}
+		if !alreadyAdded {
+			modelNames = append(modelNames, requestedModel)
+		}
 	}
+	for _, modelName := range modelNames {
+		if converter := getRegisteredVideoBillingConverter(modelName); converter != nil {
+			candidateReq := req
+			candidateReq.Model = modelName
+			return converter(candidateReq)
+		}
+		switch {
+		case strings.HasPrefix(modelName, "happyhorse-1.0"), strings.HasPrefix(modelName, "happyhorse-1.1"):
+			return convertAliHappyHorseVideoBillingParams(req)
+		case strings.HasPrefix(modelName, "kling/kling-v3-"):
+			return convertAliKlingVideoBillingParams(req)
+		}
+	}
+	return nil, fmt.Errorf("video billing converter not found for model %s", req.Model)
 }
 
 func resolveVideoBillingDuration(req relaycommon.TaskSubmitReq) int {

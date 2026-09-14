@@ -301,3 +301,54 @@ func TestRelayTaskVideoSecondsUsesMappedUpstreamBillingConverter(t *testing.T) {
 	require.NotNil(t, info.PriceData.VideoAudioEnabled)
 	assert.False(t, *info.PriceData.VideoAudioEnabled)
 }
+
+func TestRelayTaskVideoSecondsUsesDoubaoConverterWhenUpstreamModelIsOpaque(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	savedConfig := map[string]string{}
+	require.NoError(t, config.GlobalConfig.SaveToDB(func(key, value string) error {
+		savedConfig[key] = value
+		return nil
+	}))
+	savedVideoPrices := ratio_setting.VideoSecondsPrice2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(savedConfig))
+	})
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateVideoSecondsPriceByJSONString(savedVideoPrices))
+	})
+
+	const modelName = "doubao-seedance-2-0-260128"
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		"billing_setting.billing_mode": `{"doubao-seedance-2-0-260128":"video_seconds"}`,
+	}))
+	require.NoError(t, ratio_setting.UpdateVideoSecondsPriceByJSONString(`{
+		"doubao-seedance-2-0-260128": {
+			"480p": {"default": 0.25}
+		}
+	}`))
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("group", "default")
+	ctx.Set("task_request", relaycommon.TaskSubmitReq{
+		Model: modelName, Resolution: "480p", Duration: 7,
+	})
+	info := &relaycommon.RelayInfo{
+		OriginModelName: modelName,
+		UserGroup:       "default",
+		UsingGroup:      "default",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ep-20260914-opaque",
+			IsModelMapped:     true,
+		},
+	}
+	info.PriceData.GroupRatioInfo.GroupRatio = 1
+
+	assert.Equal(t, billing_setting.BillingModeVideoSeconds,
+		billing_setting.ResolveBillingMode(modelName, info.GetUpstreamModelName()))
+	require.NoError(t, applyVideoSecondsBilling(ctx, info))
+	assert.Equal(t, common.QuotaFromFloat(0.25*7*common.QuotaPerUnit), info.PriceData.Quota)
+	assert.Equal(t, 0.25, info.PriceData.VideoSecondsUnitPrice)
+	assert.Equal(t, "480p", info.PriceData.VideoSecondsTier)
+	assert.Equal(t, 7, info.PriceData.VideoDurationSeconds)
+}

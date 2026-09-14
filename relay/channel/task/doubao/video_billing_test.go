@@ -65,3 +65,43 @@ func TestDoubaoVideoBillingConverterIsRegistered(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "720p", params.Tier)
 }
+
+func TestDoubaoVideoBillingConverterFallsBackFromOpaqueUpstreamModel(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "doubao-seedance-2-0-260128",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ep-20260914134700-example",
+			IsModelMapped:     true,
+		},
+	}
+
+	params, err := taskcommon.ConvertVideoBillingParams(info, relaycommon.TaskSubmitReq{
+		Model:      "doubao-seedance-2-0-260128",
+		Duration:   7,
+		Resolution: "480p",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "480p", params.Tier)
+	assert.Equal(t, 7, params.DurationSeconds)
+}
+
+func TestDoubaoVideoBillingConverterFallsBackToOriginModel(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "doubao-seedance-2-0-260128",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "ep-20260914134700-example",
+			IsModelMapped:     true,
+		},
+	}
+
+	params, err := taskcommon.ConvertVideoBillingParams(info, relaycommon.TaskSubmitReq{
+		Model:      "rewritten-request-model",
+		Duration:   7,
+		Resolution: "480p",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "480p", params.Tier)
+	assert.Equal(t, 7, params.DurationSeconds)
+}
